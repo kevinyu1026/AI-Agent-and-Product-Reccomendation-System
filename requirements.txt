@@ -1,0 +1,13 @@
+sentence-transformers
+faiss-cpu
+torch
+torchvision
+Pillow
+pandas
+streamlit
+openai
+plotly
+numpy
+requests
+tqdm
+scikit-learn
