@@ -8,6 +8,10 @@ streamlit
 openai
 plotly
 numpy
+scikit-learn
+tqdm
+requests
 requests
 tqdm
 scikit-learn
+git+https://github.com/openai/CLIP.git

@@ -1,7 +1,14 @@
 {
-  "total_products": 10,
+  "total_products": 16,
   "text_embedding_dim": 384,
-  "has_combined_index": false,
-  "text_weight": 0.6,
-  "image_weight": 0.4
+  "image_embedding_dim": 512,
+  "has_text_index": true,
+  "has_image_index": true,
+  "has_combined_index": true,
+  "successful_images": 16,
+  "model_info": {
+    "text_model": "SentenceTransformer all-MiniLM-L6-v2",
+    "image_model": "CLIP ViT-B/32"
+  },
+  "embedding_strategy": "separate_dimensions"
 }
