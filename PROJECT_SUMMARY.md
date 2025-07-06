@@ -7,7 +7,7 @@ This project implements a complete **multimodal AI agent** for product recommend
 ### 🎯 Objectives Completed
 
 ✅ **Data Preparation**: Fashion apparel dataset with 20+ products including titles, descriptions, prices, and images  
-✅ **Embedding Generation**: Text (SentenceTransformer) + Image (ResNet50) embeddings  
+✅ **Embedding Generation**: Text (SentenceTransformer) + Image CLIP embeddings  
 ✅ **Vector Database**: FAISS indices for efficient similarity search  
 ✅ **Similarity Search**: Multi-modal product matching capabilities  
 ✅ **RAG Integration**: AI-powered product descriptions and recommendations  

@@ -74,6 +74,59 @@ st.markdown("""
         font-weight: bold;
         color: #2e7d32;
     }
+    
+    /* Dark mode improvements for chat */
+    .stChatMessage {
+        border-radius: 10px;
+        padding: 10px;
+        margin: 5px 0;
+    }
+    
+    /* Chat message styling for better visibility */
+    [data-testid="stChatMessage"] {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 10px !important;
+    }
+    
+    /* User messages */
+    [data-testid="stChatMessage"][data-testid*="user"] {
+        background-color: rgba(100, 150, 255, 0.1) !important;
+        border-left: 3px solid #4CAF50 !important;
+    }
+    
+    /* Assistant messages */
+    [data-testid="stChatMessage"][data-testid*="assistant"] {
+        background-color: rgba(150, 100, 255, 0.1) !important;
+        border-left: 3px solid #FF9800 !important;
+    }
+    
+    /* Chat input styling - make text visible in dark mode */
+    .stChatInput > div > div > div {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        color: #ffffff !important;
+    }
+    
+    .stChatInput input {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .stChatInput input::placeholder {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+    
+    /* Ensure chat message text is visible */
+    [data-testid="stChatMessage"] p {
+        color: inherit !important;
+    }
+    
+    /* Fix for chat input text color in dark mode */
+    .stChatInput textarea {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.1) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -365,7 +418,7 @@ def main():
     st.header("🔍 Search Products")
     
     # Create tabs for different search methods
-    tab1, tab2, tab3 = st.tabs(["📝 Text Search", "🖼️ Image Search", "📊 Analytics"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📝 Text Search", "🖼️ Image Search", "📊 Analytics", "🤖 AI Assistant"])
     
     with tab1:
         st.subheader("Search by Description")
@@ -548,6 +601,115 @@ def main():
         
         else:
             st.warning("No product data available.")
+    
+    with tab4:
+        st.subheader("🤖 AI Shopping Assistant")
+        
+        # Chat controls
+        col1, col2 = st.columns([4, 1])
+        with col2:
+            if st.button("🗑️ Clear Chat", help="Clear conversation history"):
+                if "ai_chat_messages" in st.session_state:
+                    st.session_state.ai_chat_messages = []
+                if "conversational_agent" in st.session_state and st.session_state.conversational_agent:
+                    st.session_state.conversational_agent.clear_context()
+                if "input_counter" in st.session_state:
+                    st.session_state.input_counter = 0
+                st.rerun()
+        
+        # Import and display conversational commerce interface
+        st.markdown("### 🤖 AI Shopping Assistant (Advanced Conversational AI)")
+        st.markdown("*I can have natural conversations and help you find products! Ask me anything.*")
+        
+        try:
+            # Initialize conversational agent directly
+            if "conversational_agent" not in st.session_state:
+                try:
+                    from models.conversational_agent import ConversationalAgent
+                    st.session_state.conversational_agent = ConversationalAgent(search_engine)
+                    st.success("🤖 Advanced Conversational AI loaded!")
+                except ImportError as e:
+                    st.error(f"❌ Failed to import ConversationalAgent: {e}")
+                    st.session_state.conversational_agent = None
+                except Exception as e:
+                    st.error(f"❌ Failed to initialize ConversationalAgent: {e}")
+                    st.session_state.conversational_agent = None
+            
+            # Show status
+            if st.session_state.conversational_agent:
+                st.success("🤖 Advanced Conversational AI: **ACTIVE**")
+            else:
+                st.warning("⚠️ Basic Responses Only: **Advanced AI not available**")
+            
+            # Initialize chat history with unique key
+            if "ai_chat_messages" not in st.session_state:
+                st.session_state.ai_chat_messages = []
+                # Add welcome message
+                if st.session_state.conversational_agent:
+                    welcome = st.session_state.conversational_agent.respond("hello")
+                    st.session_state.ai_chat_messages.append({"role": "assistant", "content": welcome})
+                else:
+                    st.session_state.ai_chat_messages.append({
+                        "role": "assistant", 
+                        "content": "Hi! 👋 I'm your AI shopping assistant. I can help you find products and have casual conversations. What are you looking for today?"
+                    })
+            
+            # Initialize input counter for clearing
+            if "input_counter" not in st.session_state:
+                st.session_state.input_counter = 0
+            
+            # Display chat messages
+            for message in st.session_state.ai_chat_messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+            
+            # Chat input with key that changes to clear the input
+            chat_key = f"ai_chat_input_{st.session_state.input_counter}"
+            user_input = st.chat_input("Type anything - ask about products, say hi, or just chat...", key=chat_key)
+            
+            if user_input:
+                # Increment counter to clear input field on next render
+                st.session_state.input_counter += 1
+                
+                # Add user message
+                st.session_state.ai_chat_messages.append({"role": "user", "content": user_input})
+                
+                # Generate response
+                with st.spinner("🤔 Thinking..."):
+                    if st.session_state.conversational_agent:
+                        # Use the conversational agent for natural responses
+                        response = st.session_state.conversational_agent.respond(user_input)
+                    else:
+                        # Fallback to basic responses
+                        if user_input.lower() in ['hello', 'hi', 'hey']:
+                            response = "Hi there! 👋 I'm your AI shopping assistant. What can I help you find today?"
+                        elif 'thank' in user_input.lower():
+                            response = "You're welcome! 😊 Is there anything else I can help you with?"
+                        elif search_engine and get_text_embedding_func and any(word in user_input.lower() for word in ['shirt', 'jacket', 'pants', 'dress', 'shoes']):
+                            # Try to search
+                            try:
+                                query_embedding = get_text_embedding_func(user_input)
+                                results, _ = search_engine.search_similar(query_embedding, search_type="text", top_k=3)
+                                
+                                if len(results) > 0:
+                                    response = f"I found some great options for '{user_input}'! 🎉\n\n"
+                                    for _, product in results.head(2).iterrows():
+                                        response += f"• **{product['title']}** - ${product['price']}\n"
+                                    response += "\n💡 Check the Text Search tab above for full details and images!"
+                                else:
+                                    response = f"I couldn't find exact matches for '{user_input}', but I'd love to help! Try using broader terms like 'shirt' or 'jacket'. What style are you going for?"
+                            except:
+                                response = f"I'd love to help you find '{user_input}'! For the best results with images and details, try the Text Search tab above. What specific style or features are you looking for?"
+                        else:
+                            response = f"That's interesting! I'm here to help you find products. Are you looking for something specific to shop for, or would you like me to show you what's available?"
+                
+                # Add response
+                st.session_state.ai_chat_messages.append({"role": "assistant", "content": response})
+                st.rerun()
+            
+        except Exception as e:
+            st.error(f"Error loading conversational interface: {e}")
+            st.info("Please ensure all required dependencies are installed.")
     
     # Footer
     st.markdown("---")
