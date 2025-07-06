@@ -177,7 +177,7 @@ def display_product_card(product, similarity_score=None):
                     response = requests.get(product['image_url'], timeout=10)
                     if response.status_code == 200:
                         img = Image.open(BytesIO(response.content))
-                        st.image(img, use_column_width=True)
+                        st.image(img, use_container_width=True)
                     else:
                         st.write("🖼️ Image not available")
                 else:
@@ -662,10 +662,101 @@ def main():
             for message in st.session_state.ai_chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
+                    
+                    # Display uploaded image if user uploaded one
+                    if message["role"] == "user" and message.get("uploaded_image"):
+                        st.image(message["uploaded_image"], caption="Your uploaded image", width=200)
+                    
+                    # Display product images if available (from AI recommendations)
+                    if message.get("products"):
+                        st.markdown("**🛍️ Product Recommendations:**")
+                        cols = st.columns(min(len(message["products"]), 3))  # Max 3 columns
+                        
+                        for i, product in enumerate(message["products"]):
+                            with cols[i % 3]:
+                                if product.get("image_url"):
+                                    try:
+                                        # Display product image
+                                        st.image(
+                                            product["image_url"], 
+                                            caption=f"{product['title']}\n{product['price']}", 
+                                            use_container_width=True
+                                        )
+                                    except Exception as e:
+                                        st.warning(f"⚠️ Could not load image for {product['title']}")
+                                        st.text(f"🏷️ {product['title']}\n💰 {product['price']}")
+                                else:
+                                    # Fallback for products without images
+                                    st.markdown(f"""
+                                    **{product['title']}**  
+                                    💰 {product['price']}  
+                                    🏷️ {product['tags']}
+                                    """)
+                        
+                        st.markdown("---")
+            
+            # Image upload for visual search in chat
+            st.markdown("**📸 Upload an image to search for similar products:**")
+            uploaded_image = st.file_uploader(
+                "Choose an image file (JPG, PNG, JPEG)", 
+                type=['jpg', 'jpeg', 'png'],
+                help="Upload a photo and I'll find visually similar products!",
+                key=f"chat_image_upload_{st.session_state.input_counter}"
+            )
             
             # Chat input with key that changes to clear the input
             chat_key = f"ai_chat_input_{st.session_state.input_counter}"
             user_input = st.chat_input("Type anything - ask about products, say hi, or just chat...", key=chat_key)
+            
+            # Handle image upload
+            if uploaded_image is not None:
+                # Increment counter to clear input field on next render
+                st.session_state.input_counter += 1
+                
+                # Read image data
+                image_data = uploaded_image.read()
+                
+                # Add user message showing image was uploaded WITH the actual image
+                st.session_state.ai_chat_messages.append({
+                    "role": "user", 
+                    "content": f"📸 *Uploaded image: {uploaded_image.name}*\n\nCan you find products similar to this image?",
+                    "uploaded_image": uploaded_image  # Store the uploaded image to display
+                })
+                
+                # Generate response using image search
+                with st.spinner("🔍 Analyzing your image..."):
+                    if st.session_state.conversational_agent:
+                        # Use the conversational agent's image search capability
+                        response = st.session_state.conversational_agent.respond_with_image(
+                            "Find products similar to this image", 
+                            image_data
+                        )
+                        
+                        # Handle structured response for image search
+                        if isinstance(response, dict):
+                            response_text = response.get('text', str(response))
+                            products = response.get('products', [])
+                            st.session_state.ai_chat_messages.append({
+                                "role": "assistant", 
+                                "content": response_text,
+                                "products": products
+                            })
+                        else:
+                            st.session_state.ai_chat_messages.append({"role": "assistant", "content": response})
+                    else:
+                        # Fallback response
+                        response = """I can see you've uploaded an image! 📸 
+
+For the best image search results, I recommend using the **Image Search tab** above where you can:
+• Upload your photo
+• See visual similarity scores
+• Get detailed product comparisons
+• View full-size images
+
+What type of product are you looking for in your image?"""
+                        st.session_state.ai_chat_messages.append({"role": "assistant", "content": response})
+                
+                st.rerun()
             
             if user_input:
                 # Increment counter to clear input field on next render
@@ -677,8 +768,23 @@ def main():
                 # Generate response
                 with st.spinner("🤔 Thinking..."):
                     if st.session_state.conversational_agent:
-                        # Use the conversational agent for natural responses
-                        response = st.session_state.conversational_agent.respond(user_input)
+                        # Use the conversational agent's enhanced response method
+                        response = st.session_state.conversational_agent.respond_with_images(user_input)
+                        
+                        # Handle structured response
+                        if isinstance(response, dict):
+                            response_text = response.get('text', str(response))
+                            products = response.get('products', [])
+                            response_type = response.get('type', 'text')
+                            
+                            st.session_state.ai_chat_messages.append({
+                                "role": "assistant", 
+                                "content": response_text,
+                                "products": products if response_type == 'product_search' else []
+                            })
+                        else:
+                            # Fallback for simple string response
+                            st.session_state.ai_chat_messages.append({"role": "assistant", "content": response})
                     else:
                         # Fallback to basic responses
                         if user_input.lower() in ['hello', 'hi', 'hey']:
@@ -702,9 +808,9 @@ def main():
                                 response = f"I'd love to help you find '{user_input}'! For the best results with images and details, try the Text Search tab above. What specific style or features are you looking for?"
                         else:
                             response = f"That's interesting! I'm here to help you find products. Are you looking for something specific to shop for, or would you like me to show you what's available?"
+                        
+                        st.session_state.ai_chat_messages.append({"role": "assistant", "content": response})
                 
-                # Add response
-                st.session_state.ai_chat_messages.append({"role": "assistant", "content": response})
                 st.rerun()
             
         except Exception as e:
