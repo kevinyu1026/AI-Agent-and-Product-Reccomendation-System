@@ -16,18 +16,12 @@ import plotly.express as px
 try:
     from models.embed_utils import (
         get_text_embedding, 
-        get_image_embedding_simple,
-        get_enhanced_text_embedding,
-        get_enhanced_image_embedding,
-        get_semantic_tags
+        get_image_embedding_simple
     )
     from models.rag_utils import get_search_engine, generate_rag_description
     MODELS_AVAILABLE = True
     get_text_embedding_func = get_text_embedding
     get_image_embedding_simple_func = get_image_embedding_simple
-    get_enhanced_text_embedding_func = get_enhanced_text_embedding
-    get_enhanced_image_embedding_func = get_enhanced_image_embedding
-    get_semantic_tags_func = get_semantic_tags
     get_search_engine_func = get_search_engine
     generate_rag_description_func = generate_rag_description
 except ImportError as e:
@@ -36,9 +30,6 @@ except ImportError as e:
     MODELS_AVAILABLE = False
     get_text_embedding_func = None
     get_image_embedding_simple_func = None
-    get_enhanced_text_embedding_func = None
-    get_enhanced_image_embedding_func = None
-    get_semantic_tags_func = None
     get_search_engine_func = None
     generate_rag_description_func = None
 
@@ -165,106 +156,10 @@ def load_search_engine():
         st.error(traceback.format_exc())
         return None
 
-def display_product_card(product, similarity_score=None):
-    """Display a product in a card format"""
-    with st.container():
-        col1, col2 = st.columns([1, 2])
-        
-        with col1:
-            # Display product image
-            try:
-                if product['image_url']:
-                    response = requests.get(product['image_url'], timeout=10)
-                    if response.status_code == 200:
-                        img = Image.open(BytesIO(response.content))
-                        st.image(img, use_container_width=True)
-                    else:
-                        st.write("🖼️ Image not available")
-                else:
-                    st.write("🖼️ No image")
-            except Exception:
-                st.write("🖼️ Image loading failed")
-        
-        with col2:
-            # Product details
-            st.markdown(f"### {product['title']}")
+# Legacy function removed - use display_enhanced_product_card() instead
+# def display_product_card(product, similarity_score=None): ... [REMOVED]
             
-            # Price and similarity score
-            col2a, col2b = st.columns(2)
-            with col2a:
-                price = product['price'] if product['price'] != 'N/A' else 'Price not available'
-                st.markdown(f'<div class="price-tag">${price}</div>', unsafe_allow_html=True)
-            
-            with col2b:
-                if similarity_score:
-                    st.markdown(f'<div class="similarity-score">Match: {similarity_score:.1%}</div>', 
-                              unsafe_allow_html=True)
-            
-            # Description
-            st.write(f"**Description:** {product['description']}")
-            
-            # Tags
-            if product['tags']:
-                st.write(f"**Category:** {product['tags']}")
-            
-def enhanced_search_products(query, search_engine, top_k=5, use_enhanced=True):
-    """Enhanced search with improved accuracy."""
-    try:
-        if use_enhanced and get_enhanced_text_embedding_func is not None:
-            # Use enhanced embedding
-            query_embedding = get_enhanced_text_embedding_func(query)
-            
-            # Get semantic tags for query understanding
-            if get_semantic_tags_func is not None:
-                query_tags = get_semantic_tags_func(query)
-                st.info(f"🎯 Query understanding: {', '.join([f'{k}: {v}' for k, v in query_tags.items() if v])}")
-        else:
-            # Fallback to basic embedding
-            if get_text_embedding_func is not None:
-                query_embedding = get_text_embedding_func(query)
-            else:
-                st.error("Text embedding function not available")
-                return pd.DataFrame()
-        
-        # Search for similar products
-        results, _ = search_engine.search_similar(
-            query_embedding, 
-            search_type="text", 
-            top_k=top_k
-        )
-        
-        return results
-        
-    except Exception as e:
-        st.error(f"Enhanced search failed: {e}")
-        return pd.DataFrame()
 
-def enhanced_image_search(image_input, search_engine, top_k=5, use_enhanced=True):
-    """Enhanced image search with better visual understanding."""
-    try:
-        if use_enhanced and get_enhanced_image_embedding_func is not None:
-            # Use enhanced image embedding
-            image_embedding = get_enhanced_image_embedding_func(image_input)
-        else:
-            # Fallback to basic embedding
-            if get_image_embedding_simple_func is not None:
-                image_embedding = get_image_embedding_simple_func(image_input)
-            else:
-                st.error("Image embedding function not available")
-                return pd.DataFrame()
-        
-        # Search for similar products
-        results, _ = search_engine.search_similar(
-            image_embedding,
-            search_type="image",
-            top_k=top_k
-        )
-        
-        return results
-        
-    except Exception as e:
-        st.error(f"Enhanced image search failed: {e}")
-        return pd.DataFrame()
 
 def display_enhanced_product_card(product, similarity_score=None, show_semantic_tags=False):
     """Enhanced product card with semantic information."""
@@ -294,10 +189,10 @@ def display_enhanced_product_card(product, similarity_score=None, show_semantic_
             if product.get('price'):
                 st.markdown(f"**💰 Price:** `${product['price']}`")
             
-            # Similarity score
+            # Similarity score (now using percentage format since search engine returns 0-100)
             if similarity_score is not None:
-                confidence_color = "green" if similarity_score > 0.8 else "orange" if similarity_score > 0.6 else "red"
-                st.markdown(f"**📊 Match Confidence:** :{confidence_color}[{similarity_score:.1%}]")
+                confidence_color = "green" if similarity_score > 80 else "orange" if similarity_score > 60 else "red"
+                st.markdown(f"**📊 Match Confidence:** :{confidence_color}[{similarity_score:.1f}%]")
             
             # Description
             if product.get('description'):
@@ -308,18 +203,7 @@ def display_enhanced_product_card(product, similarity_score=None, show_semantic_
                 st.write(f"**Category:** {product['tags']}")
             
             # Show semantic tags if available
-            if show_semantic_tags and get_semantic_tags_func is not None:
-                try:
-                    full_text = f"{product['title']} {product.get('description', '')} {product.get('tags', '')}"
-                    semantic_tags = get_semantic_tags_func(full_text)
-                    
-                    if any(semantic_tags.values()):
-                        st.markdown("**🏷️ Product Attributes:**")
-                        for category, values in semantic_tags.items():
-                            if values:
-                                st.markdown(f"  • {category.title()}: {', '.join(values)}")
-                except:
-                    pass
+            # Semantic tags functionality removed for simplification
             
             st.markdown("---")
 
@@ -423,10 +307,6 @@ def main():
     with tab1:
         st.subheader("Search by Description")
         
-        # Enhanced search toggle
-        use_enhanced = st.checkbox("🚀 Use Enhanced Search", value=True, 
-                                  help="Enhanced search uses improved text processing and semantic understanding")
-        
         query = st.text_input(
             "What are you looking for?",
             placeholder="e.g., blue leather jacket, women's summer top, casual shoes..."
@@ -435,32 +315,29 @@ def main():
         if query:
             with st.spinner("🔍 Searching..."):
                 try:
-                    if use_enhanced:
-                        # Use enhanced search
-                        results = enhanced_search_products(query, search_engine, num_results, use_enhanced=True)
-                    else:
-                        # Use basic search
-                        if get_text_embedding_func is None:
-                            st.error("Text embedding function not available")
-                            return
-                        
-                        query_embedding = get_text_embedding_func(query)
-                        
-                        # Search for similar products
-                        results, _ = search_engine.search_similar(
-                            query_embedding, 
-                            search_type=search_type.replace("_only", ""), 
-                            top_k=num_results
-                        )
+                    if get_text_embedding_func is None:
+                        st.error("Text embedding function not available")
+                        return
+                    
+                    query_embedding = get_text_embedding_func(query)
+                    
+                    # Search for similar products
+                    results, _ = search_engine.search_similar(
+                        query_embedding, 
+                        search_type=search_type.replace("_only", ""), 
+                        top_k=num_results,
+                        text_threshold=55.0,   # Higher threshold for text search (very precise)
+                        image_threshold=25.0   # Lower threshold for image search (better recall)
+                    )
                     
                     if len(results) > 0:
                         st.success(f"✅ Found {len(results)} matching products!")
                         
-                        # Display results with enhanced cards
+                        # Display results
                         st.subheader("🎯 Search Results")
                         for _, product in results.iterrows():
                             similarity_score = product.get('similarity_score', 0)
-                            display_enhanced_product_card(product, similarity_score, show_semantic_tags=use_enhanced)
+                            display_enhanced_product_card(product, similarity_score, show_semantic_tags=False)
                         
                         # Generate AI description
                         st.subheader("🧠 AI-Powered Recommendation")
@@ -473,21 +350,7 @@ def main():
                     
                     else:
                         st.warning("No products found matching your search.")
-                        
-                        # Suggest alternative searches
-                        if use_enhanced and get_semantic_tags_func is not None:
-                            try:
-                                query_tags = get_semantic_tags_func(query)
-                                suggestions = []
-                                if query_tags.get('color'):
-                                    suggestions.append(f"Try searching without color: '{query.replace(query_tags['color'][0], '').strip()}'")
-                                if query_tags.get('category'):
-                                    suggestions.append(f"Try broader category search")
-                                
-                                if suggestions:
-                                    st.info("💡 Search suggestions:\n" + "\n".join([f"• {s}" for s in suggestions]))
-                            except:
-                                pass
+                        st.info("💡 Try using simpler keywords or different search terms.")
                         
                 except Exception as e:
                     st.error(f"Search failed: {str(e)}")
@@ -495,10 +358,6 @@ def main():
     
     with tab2:
         st.subheader("Search by Image")
-        
-        # Enhanced image search toggle
-        use_enhanced_img = st.checkbox("🚀 Use Enhanced Image Search", value=True,
-                                      help="Enhanced image search uses CLIP for better visual understanding")
         
         uploaded_file = st.file_uploader(
             "Upload an image to find similar products",
@@ -518,31 +377,28 @@ def main():
                         st.info("To enable image search, re-run the notebook cells that generate image embeddings.")
                         return
                     
-                    if use_enhanced_img:
-                        # Use enhanced image search
-                        results = enhanced_image_search(uploaded_file, search_engine, num_results, use_enhanced=True)
-                    else:
-                        # Use basic image search
-                        if get_image_embedding_simple_func is None:
-                            st.error("Image embedding function not available")
-                            return
-                        
-                        image_embedding = get_image_embedding_simple_func(uploaded_file)
-                        st.success(f"✅ Image processed successfully (embedding: {image_embedding.shape[0]}D)")
-                        
-                        results, _ = search_engine.search_similar(
-                            image_embedding,
-                            search_type="image",  # Use image index for image search
-                            top_k=num_results
-                        )
+                    if get_image_embedding_simple_func is None:
+                        st.error("Image embedding function not available")
+                        return
+                    
+                    image_embedding = get_image_embedding_simple_func(uploaded_file)
+                    st.success(f"✅ Image processed successfully (embedding: {image_embedding.shape[0]}D)")
+                    
+                    results, _ = search_engine.search_similar(
+                        image_embedding,
+                        search_type="image",  # Use image index for image search
+                        top_k=num_results,
+                        text_threshold=55.0,   # Higher threshold for text search
+                        image_threshold=25.0   # Lower threshold for image search (optimized for visual similarity)
+                    )
                     
                     if len(results) > 0:
                         st.success(f"✅ Found {len(results)} visually similar products!")
                         
-                        # Display results with enhanced cards
+                        # Display results
                         for _, product in results.iterrows():
                             similarity_score = product.get('similarity_score', 0)
-                            display_enhanced_product_card(product, similarity_score, show_semantic_tags=use_enhanced_img)
+                            display_enhanced_product_card(product, similarity_score, show_semantic_tags=False)
                         
                         # Generate AI description
                         if generate_rag_description_func is not None:
@@ -795,7 +651,7 @@ What type of product are you looking for in your image?"""
                             # Try to search
                             try:
                                 query_embedding = get_text_embedding_func(user_input)
-                                results, _ = search_engine.search_similar(query_embedding, search_type="text", top_k=3)
+                                results, _ = search_engine.search_similar(query_embedding, search_type="text", top_k=3, text_threshold=55.0, image_threshold=25.0)
                                 
                                 if len(results) > 0:
                                     response = f"I found some great options for '{user_input}'! 🎉\n\n"

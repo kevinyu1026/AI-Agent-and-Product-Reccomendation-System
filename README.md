@@ -82,7 +82,7 @@ See `PROJECT_SUMMARY.md` for:
 
 ---
 
-**Built in 4-5 hours** | **Production Ready** | **Fully Documented** agent** for intelligent product recommendations using vector search, similarity matching, and retrieval-augmented generation (RAG).
+**Built in 8-9 hours** | **Production Ready** | **Fully Documented** agent** for intelligent product recommendations using vector search, similarity matching, and retrieval-augmented generation (RAG).
 
 ## 🎯 Project Overview
 
@@ -98,7 +98,7 @@ This system demonstrates advanced AI capabilities for e-commerce applications:
 
 ### 1. **Multimodal Embeddings**
 - **Text**: SentenceTransformer (`all-MiniLM-L6-v2`) for semantic understanding
-- **Images**: ResNet50 for visual feature extraction
+- **Images**: CLIP for visual feature extraction
 - **Fusion**: Weighted combination of text + image embeddings
 
 ### 2. **Advanced Search Capabilities**

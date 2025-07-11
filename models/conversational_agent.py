@@ -203,7 +203,9 @@ What specific type of product are you most interested in? I can give you some ge
                 results, _ = self.search_engine.search_similar(
                     query_embedding, 
                     search_type="text", 
-                    top_k=3
+                    top_k=3,
+                    text_threshold=55.0,   # Higher threshold for text search (very precise)
+                    image_threshold=25.0   # Lower threshold for image search
                 )
                 
                 if len(results) > 0:
@@ -219,14 +221,15 @@ What specific type of product are you most interested in? I can give you some ge
                     response += "What do you think of these options? Need help narrowing it down or looking for something else?"
                     
                     return response
-                
                 else:
                     return self.generate_no_results_response(query)
                     
-            except Exception as e:
-                return f"I understand you're looking for '{query}' - that sounds interesting! 🤔\n\nTo get the best results with images and detailed info, try using the **Text Search tab** above. \n\nIn the meantime, what specific features are most important to you? Color, style, price range?"
-        
+            except Exception as search_error:
+                print(f"Search error: {search_error}")
+                return self.generate_fallback_response(query)
+                
         except Exception as e:
+            print(f"Error in product search: {e}")
             return self.generate_fallback_response(query)
     
     def generate_no_results_response(self, query: str) -> str:
@@ -292,11 +295,13 @@ Unfortunately, I need the search engine to be connected to give you specific res
                 # Generate image embedding
                 image_embedding = get_image_embedding_simple(image_data)
                 
-                # Search for similar products
+                # Search for similar products using separate thresholds optimized for image search
                 results, _ = self.search_engine.search_similar(
                     image_embedding, 
                     search_type="image", 
-                    top_k=5
+                    top_k=5,
+                    text_threshold=55.0,   # Higher threshold for text search (very precise)
+                    image_threshold=25.0   # Lower threshold for image search (better visual recall)
                 )
                 
                 if len(results) > 0:
@@ -385,10 +390,13 @@ What type of style or features are you most interested in?"""
                 image_embedding = get_image_embedding_simple(BytesIO(image_data))
                 
                 # Search for similar products
+                # Search for similar products using separate thresholds
                 results, _ = self.search_engine.search_similar(
                     image_embedding, 
                     search_type="image", 
-                    top_k=5
+                    top_k=5,
+                    text_threshold=55.0,   # Higher threshold for text search (very precise)
+                    image_threshold=25.0   # Lower threshold for image search (better visual recall)
                 )
                 
                 if len(results) > 0:
@@ -473,7 +481,7 @@ What specific style, color, or features from the image are most important to you
         return response
     
     def respond_with_images(self, message: str):
-        """Enhanced response method that includes product images when available"""
+        """Response method that includes product images when available"""
         
         # Add to conversation context
         self.conversation_context.append({"role": "user", "content": message})
@@ -482,14 +490,14 @@ What specific style, color, or features from the image are most important to you
         intent = self.get_intent(message)
         
         if intent == 'product_search':
-            # Handle product search with enhanced image support
-            enhanced_response = self.handle_product_search_with_images(message)
+            # Handle product search with image support
+            response = self.handle_product_search_with_images(message)
             
             # Add to conversation context
-            response_text = enhanced_response.get('text', enhanced_response) if isinstance(enhanced_response, dict) else enhanced_response
+            response_text = response.get('text', response) if isinstance(response, dict) else response
             self.conversation_context.append({"role": "assistant", "content": response_text})
             
-            return enhanced_response
+            return response
         else:
             # For non-product searches, return regular text response
             response = self.generate_casual_response(intent, message)
@@ -525,7 +533,9 @@ What specific type of product are you most interested in? I can give you some ge
                 results, _ = self.search_engine.search_similar(
                     query_embedding, 
                     search_type="text", 
-                    top_k=3
+                    top_k=3,
+                    text_threshold=55.0,   # Higher threshold for text search (very precise)
+                    image_threshold=25.0   # Lower threshold for image search
                 )
                 
                 if len(results) > 0:
@@ -565,7 +575,8 @@ What specific type of product are you most interested in? I can give you some ge
                         'type': 'text'
                     }
                     
-            except Exception as e:
+            except Exception as search_error:
+                print(f"Search error: {search_error}")
                 return {
                     'text': f"I understand you're looking for '{query}' - that sounds interesting! 🤔\n\nTo get the best results with images and detailed info, try using the **Text Search tab** above. \n\nIn the meantime, what specific features are most important to you? Color, style, price range?",
                     'type': 'text'
